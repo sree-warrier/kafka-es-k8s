@@ -1,0 +1,19 @@
+repositories:
+  - name: stable
+    url: https://kubernetes-charts.storage.googleapis.com
+
+releases:
+  - name: es
+    chart: elastic/elasticsearch
+    values:
+      - ./charts/es-helm/values.yaml
+  
+  - name: kafka
+    chart: confluentinc/cp-helm-charts
+    values:
+      - ./charts/kafka-helm/values.yaml
+
+  - name: fluentd
+    chart: stable/fluentd-elasticsearch
+    values:
+      - ./charts/fluentd-helm/values.yaml

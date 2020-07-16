@@ -1,0 +1,119 @@
+image:
+  repository: gcr.io/google-containers/fluentd-elasticsearch
+## Specify an imagePullPolicy (Required)
+## It's recommended to change this to 'Always' if the image tag is 'latest'
+## ref: http://kubernetes.io/docs/user-guide/images/#updating-images
+  tag: v2.3.2
+  pullPolicy: IfNotPresent
+
+## Configure resource requests and limits
+## ref: http://kubernetes.io/docs/user-guide/compute-resources/
+##
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 500Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 200Mi
+
+elasticsearch:
+  host: 'elasticsearch-client'
+  port: 9200
+  scheme: 'http'
+  ssl_version: TLSv1_2
+  buffer_chunk_limit: 2M
+  buffer_queue_limit: 8
+  logstash_prefix: 'logstash'
+
+# If you want to add custom environment variables, use the env dict
+# You can then reference these in your config file e.g.:
+#     user "#{ENV['OUTPUT_USER']}"
+env:
+  # OUTPUT_USER: my_user
+
+# If you want to add custom environment variables from secrets, use the secret list
+secret:
+# - name: ELASTICSEARCH_PASSWORD
+#   secret_name: elasticsearch
+#   secret_key: password
+
+rbac:
+  create: true
+
+serviceAccount:
+  # Specifies whether a ServiceAccount should be created
+  create: true
+  # The name of the ServiceAccount to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name:
+
+## Specify if a Pod Security Policy for node-exporter must be created
+## Ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/
+##
+podSecurityPolicy:
+  enabled: false
+  annotations: {}
+    ## Specify pod annotations
+    ## Ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#apparmor
+    ## Ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#seccomp
+    ## Ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/#sysctl
+    ##
+    # seccomp.security.alpha.kubernetes.io/allowedProfileNames: '*'
+    # seccomp.security.alpha.kubernetes.io/defaultProfileName: 'docker/default'
+    # apparmor.security.beta.kubernetes.io/defaultProfileName: 'runtime/default'
+
+livenessProbe:
+  enabled: true
+
+annotations: {}
+
+podAnnotations: {}
+  # prometheus.io/scrape: "true"
+  # prometheus.io/port: "24231"
+
+## DaemonSet update strategy
+## Ref: https://kubernetes.io/docs/tasks/manage-daemon/update-daemon-set/
+updateStrategy:
+  type: RollingUpdate
+
+tolerations: {}
+  # - key: node-role.kubernetes.io/master
+  #   operator: Exists
+  #   effect: NoSchedule
+
+nodeSelector: {}
+
+service: {}
+  # type: ClusterIP
+  # ports:
+  #   - name: "monitor-agent"
+  #     port: 24231
+
+configMaps:
+  system.conf: |-
+    <system>
+      root_dir /tmp/fluentd-buffers/
+    </system>
+  containers.input.conf: |-
+    <source>
+      @id fluentd-containers.log
+      @type tail
+      path /var/log/containers/*.log
+      pos_file /var/log/fluentd-containers.log.pos
+      time_format %Y-%m-%dT%H:%M:%S.%NZ
+      tag raw.kubernetes.*
+      format json
+      read_from_head true
+    </source>
+    
+    <match **>
+      @type elasticsearch
+      @log_level info
+      include_tag_key true
+      type_name _doc
+      host elasticsearch-master
+      port 9200
+      logstash_format true
+      reconnect_on_error true
+    </match>
